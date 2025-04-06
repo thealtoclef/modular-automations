@@ -62,22 +62,14 @@ jobs:
         run: |
           # Initialize arrays for outputs
           declare -a image_items
-
-          echo "Debug: Starting app metadata collection"
           
           if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" || "${{ inputs.force_build }}" == "true" ]]; then
             if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" ]]; then
-              echo "Debug: Processing ${{ steps.changed-files.outputs.all_changed_files_count }} changed files"
-              echo "Debug: All changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
-              
               # Process changed version files
               for changed_file in ${{ steps.changed-files.outputs.all_changed_files }}; do
                 if [[ -n "${changed_file}" ]]; then
-                  echo "Debug: Processing file: ${changed_file}"
                   context_dir=$(dirname $changed_file)
                   dockerfile_path="Dockerfile"  # Assuming Dockerfile is in the same directory
-                  
-                  echo "Debug: Context dir: ${context_dir}"
                   
                   # If version.txt is in root, use repo name as app_name
                   if [[ "$context_dir" == "." ]]; then
@@ -86,16 +78,11 @@ jobs:
                     app_name=$(basename $context_dir)
                   fi
                   
-                  echo "Debug: App name: ${app_name}"
-                  
                   # Only process if Dockerfile exists
                   if [[ -f "$context_dir/Dockerfile" ]]; then
-                    echo "Debug: Dockerfile found in ${context_dir}"
                     # Read version from version.txt
                     version=$(cat "$changed_file")
-                    echo "Debug: Version: ${version}"
                     tag_name="${app_name}-${version}"
-                    echo "Debug: Tag name: ${tag_name}"
                     
                     # Check if tag already exists
                     if [ $(git tag -l ${tag_name}) ]; then
@@ -103,28 +90,34 @@ jobs:
                       continue
                     fi
                     
-                    echo "Debug: Added to build queue: ${{ github.event.repository.owner.login }}/${app_name}"
-                    
                     # Create an item with all the needed properties
-                    item="${context_dir}|${dockerfile_path}|${{ github.event.repository.owner.login }}/${app_name}|${version}"
-                    image_items+=("${item}")
-                  else
-                    echo "Debug: No Dockerfile found in ${context_dir}, skipping"
+                    # Using JSON format to avoid delimiter issues
+                    item=$(jq -n \
+                      --arg cd "$context_dir" \
+                      --arg dp "$dockerfile_path" \
+                      --arg in "${{ github.event.repository.owner.login }}/${app_name}" \
+                      --arg v "$version" \
+                      '{context_dir: $cd, dockerfile_path: $dp, image_name: $in, version: $v}')
+                    image_items+=("$item")
                   fi
                 fi
               done
               
             else
               # Force build with input parameters
-              echo "Debug: Force build with input parameters"
               context_dir="${{ inputs.context_dir }}"
               dockerfile_path="${{ inputs.dockerfile_path }}"
               image_name="${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}"
               version=""
               
               # Create an item with all the needed properties
-              item="${context_dir}|${dockerfile_path}|${image_name}|${version}"
-              image_items+=("${item}")
+              item=$(jq -n \
+                --arg cd "$context_dir" \
+                --arg dp "$dockerfile_path" \
+                --arg in "$image_name" \
+                --arg v "$version" \
+                '{context_dir: $cd, dockerfile_path: $dp, image_name: $in, version: $v}')
+              image_items+=("$item")
             fi
           else
             # No changes and no force build
@@ -139,12 +132,9 @@ jobs:
           else
             echo "has_items=true" >> $GITHUB_OUTPUT
             # Create a properly escaped JSON array
-            json_array=$(printf '%s\n' "${image_items[@]}" | jq -R . | jq -sc .)
-            echo "Debug: JSON array: ${json_array}"
+            json_array=$(printf '%s\n' "${image_items[@]}" | jq -s .)
             echo "image_items=${json_array}" >> $GITHUB_OUTPUT
           fi
-          
-          echo "Debug: Output written to GITHUB_OUTPUT with ${#image_items[@]} items"
 
   release:
     needs: [setup]
@@ -160,17 +150,16 @@ jobs:
       - name: Parse image item
         id: parse-item
         run: |
-          IFS='|' read -r context_dir dockerfile_path image_name version <<< "${{ matrix.image_item }}"
+          # Using jq to extract values from the JSON object
+          context_dir=$(echo '${{ toJSON(matrix.image_item) }}' | jq -r '.context_dir')
+          dockerfile_path=$(echo '${{ toJSON(matrix.image_item) }}' | jq -r '.dockerfile_path')
+          image_name=$(echo '${{ toJSON(matrix.image_item) }}' | jq -r '.image_name')
+          version=$(echo '${{ toJSON(matrix.image_item) }}' | jq -r '.version')
+          
           echo "context_dir=${context_dir}" >> $GITHUB_OUTPUT
           echo "dockerfile_path=${dockerfile_path}" >> $GITHUB_OUTPUT
           echo "image_name=${image_name}" >> $GITHUB_OUTPUT
           echo "version=${version}" >> $GITHUB_OUTPUT
-          
-          echo "Parsed values:"
-          echo "Context dir: ${context_dir}"
-          echo "Dockerfile path: ${dockerfile_path}"
-          echo "Image name: ${image_name}"
-          echo "Version: ${version}"
 
       - name: Install packages
         uses: ConorMacBride/install-package@v1

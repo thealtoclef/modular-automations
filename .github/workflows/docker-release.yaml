@@ -59,14 +59,6 @@ jobs:
           files: |
             **/version.txt
 
-      - name: Debug Changed Files
-        run: |
-          echo "Changed files count: ${{ steps.changed-files.outputs.all_changed_files_count }}"
-          echo "Changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
-          echo "Repository owner: ${{ github.event.repository.owner.login }}"
-          echo "Repository name: ${{ github.event.repository.name }}"
-          echo "Force build: ${{ inputs.force_build }}"
-
       - name: Get App metadata
         id: app-meta
         run: |
@@ -91,19 +83,11 @@ jobs:
                     app_name=$(basename $context_dir)
                   fi
                   
-                  echo "Processing file: ${changed_file}"
-                  echo "Context dir: ${context_dir}"
-                  echo "App name: ${app_name}"
-                  
                   # Only process if Dockerfile exists
                   if [[ -f "$context_dir/Dockerfile" ]]; then
-                    echo "Dockerfile found in ${context_dir}"
                     # Read version from version.txt
                     version=$(cat "$changed_file")
                     tag_name="${app_name}-${version}"
-                    
-                    echo "Version: ${version}"
-                    echo "Tag name: ${tag_name}"
                     
                     # Check if tag already exists
                     if [ $(git tag -l ${tag_name}) ]; then
@@ -115,10 +99,6 @@ jobs:
                     dockerfile_paths+=("$dockerfile_path")
                     image_names+=("${{ github.event.repository.owner.login }}/$app_name")
                     versions+=("$version")
-                    
-                    echo "Added to build queue: ${{ github.event.repository.owner.login }}/$app_name"
-                  else
-                    echo "No Dockerfile found in ${context_dir}, skipping"
                   fi
                 fi
               done <<< "${{ steps.changed-files.outputs.all_changed_files }}"
@@ -128,8 +108,6 @@ jobs:
               dockerfile_paths+=("${{ inputs.dockerfile_path }}")
               image_names+=("${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}")
               versions+=("")
-              
-              echo "Force build enabled, using ${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}"
             fi
           else
             # No changes and no force build
@@ -137,18 +115,11 @@ jobs:
             exit 0
           fi
 
-          # Debug output
-          echo "Final context dirs array: ${context_dirs[@]}"
-          echo "Final image names array: ${image_names[@]}"
-
           # Convert arrays to JSON and properly escape for GITHUB_OUTPUT
           context_dirs_json=$(printf '%s\n' "${context_dirs[@]}" | jq -R . | jq -sc | jq -r tostring)
           dockerfile_paths_json=$(printf '%s\n' "${dockerfile_paths[@]}" | jq -R . | jq -sc | jq -r tostring)
           image_names_json=$(printf '%s\n' "${image_names[@]}" | jq -R . | jq -sc | jq -r tostring)
           versions_json=$(printf '%s\n' "${versions[@]}" | jq -R . | jq -sc | jq -r tostring)
-
-          echo "context_dirs_json: $context_dirs_json"
-          echo "image_names_json: $image_names_json"
 
           # Write to GITHUB_OUTPUT with proper delimiter
           {
@@ -179,18 +150,6 @@ jobs:
         image_name: ${{ fromJson(needs.setup.outputs.image_names) }}
         version: ${{ fromJson(needs.setup.outputs.versions) }}
     steps:
-      - name: Debug Matrix Values
-        run: |
-          echo "Context dir: ${{ matrix.context_dir }}"
-          echo "Dockerfile path: ${{ matrix.dockerfile_path }}"
-          echo "Image name: ${{ matrix.image_name }}"
-          echo "Version: ${{ matrix.version }}"
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
       - name: Install packages
         uses: ConorMacBride/install-package@v1
         with:

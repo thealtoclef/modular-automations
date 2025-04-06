@@ -69,13 +69,21 @@ jobs:
           declare -a versions
           declare -a matrix_items
 
+          echo "Debug: Starting app metadata collection"
+          
           if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" || "${{ inputs.force_build }}" == "true" ]]; then
             if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" ]]; then
+              echo "Debug: Processing ${{ steps.changed-files.outputs.all_changed_files_count }} changed files"
+              echo "Debug: All changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
+              
               # Process changed version files
               for changed_file in ${{ steps.changed-files.outputs.all_changed_files }}; do
                 if [[ -n "${changed_file}" ]]; then
+                  echo "Debug: Processing file: ${changed_file}"
                   context_dir=$(dirname $changed_file)
                   dockerfile_path="Dockerfile"  # Assuming Dockerfile is in the same directory
+                  
+                  echo "Debug: Context dir: ${context_dir}"
                   
                   # If version.txt is in root, use repo name as app_name
                   if [[ "$context_dir" == "." ]]; then
@@ -84,11 +92,16 @@ jobs:
                     app_name=$(basename $context_dir)
                   fi
                   
+                  echo "Debug: App name: ${app_name}"
+                  
                   # Only process if Dockerfile exists
                   if [[ -f "$context_dir/Dockerfile" ]]; then
+                    echo "Debug: Dockerfile found in ${context_dir}"
                     # Read version from version.txt
                     version=$(cat "$changed_file")
+                    echo "Debug: Version: ${version}"
                     tag_name="${app_name}-${version}"
+                    echo "Debug: Tag name: ${tag_name}"
                     
                     # Check if tag already exists
                     if [ $(git tag -l ${tag_name}) ]; then
@@ -96,6 +109,15 @@ jobs:
                       continue
                     fi
                     
+                    echo "Debug: Added to build queue: ${{ github.event.repository.owner.login }}/${app_name}"
+                    
+                    # Add to simple arrays first for debugging
+                    context_dirs+=("$context_dir")
+                    dockerfile_paths+=("$dockerfile_path")
+                    image_names+=("${{ github.event.repository.owner.login }}/$app_name")
+                    versions+=("$version")
+                    
+                    # Create JSON object for matrix
                     matrix_item=$(jq -n \
                       --arg context_dir "$context_dir" \
                       --arg dockerfile_path "$dockerfile_path" \
@@ -103,16 +125,34 @@ jobs:
                       --arg version "$version" \
                       '{context_dir: $context_dir, dockerfile_path: $dockerfile_path, image_name: $image_name, version: $version}')
                     matrix_items+=("$matrix_item")
+                  else
+                    echo "Debug: No Dockerfile found in ${context_dir}, skipping"
                   fi
                 fi
               done
+              
+              echo "Debug: Final context dirs array: ${context_dirs[*]}"
+              echo "Debug: Final image names array: ${image_names[*]}"
+              
             else
               # Force build with input parameters
+              echo "Debug: Force build with input parameters"
+              context_dir="${{ inputs.context_dir }}"
+              dockerfile_path="${{ inputs.dockerfile_path }}"
+              image_name="${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}"
+              version=""
+              
+              # Add to simple arrays first for debugging
+              context_dirs+=("$context_dir")
+              dockerfile_paths+=("$dockerfile_path")
+              image_names+=("$image_name")
+              versions+=("$version")
+              
               matrix_item=$(jq -n \
-                --arg context_dir "${{ inputs.context_dir }}" \
-                --arg dockerfile_path "${{ inputs.dockerfile_path }}" \
-                --arg image_name "${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}" \
-                --arg version "" \
+                --arg context_dir "$context_dir" \
+                --arg dockerfile_path "$dockerfile_path" \
+                --arg image_name "$image_name" \
+                --arg version "$version" \
                 '{context_dir: $context_dir, dockerfile_path: $dockerfile_path, image_name: $image_name, version: $version}')
               matrix_items+=("$matrix_item")
             fi
@@ -122,8 +162,17 @@ jobs:
             exit 0
           fi
 
-          # Convert matrix items array to JSON
-          matrix_json=$(printf '%s\n' "${matrix_items[@]}" | jq -s .)
+          # Check if matrix_items is empty and provide a default in that case
+          if [ ${#matrix_items[@]} -eq 0 ]; then
+            echo "Debug: No matrix items found, providing default empty array"
+            matrix_json="[]"
+          else
+            echo "Debug: Creating matrix JSON with ${#matrix_items[@]} items"
+            # Convert matrix items array to JSON
+            matrix_json=$(printf '%s\n' "${matrix_items[@]}" | jq -s .)
+          fi
+          
+          echo "Debug: matrix_json: ${matrix_json}"
 
           # Write to GITHUB_OUTPUT with proper delimiter
           {
@@ -131,9 +180,12 @@ jobs:
             echo "$matrix_json"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+          
+          echo "Debug: Output written to GITHUB_OUTPUT"
 
   release:
     needs: [setup]
+    if: ${{ needs.setup.outputs.matrix != '' && needs.setup.outputs.matrix != '[]' }}
     runs-on: ${{ inputs.runs_on }}
     permissions:
       contents: write

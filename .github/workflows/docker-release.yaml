@@ -42,10 +42,8 @@ jobs:
   setup:
     runs-on: ${{ inputs.runs_on }}
     outputs:
-      context_dirs: ${{ steps.app-meta.outputs.context_dirs }}
-      dockerfile_paths: ${{ steps.app-meta.outputs.dockerfile_paths }}
-      image_names: ${{ steps.app-meta.outputs.image_names }}
-      versions: ${{ steps.app-meta.outputs.versions }}
+      has_items: ${{ steps.app-meta.outputs.has_items }}
+      image_items: ${{ steps.app-meta.outputs.image_items }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,11 +61,7 @@ jobs:
         id: app-meta
         run: |
           # Initialize arrays for outputs
-          declare -a context_dirs
-          declare -a dockerfile_paths
-          declare -a image_names
-          declare -a versions
-          declare -a matrix_items
+          declare -a image_items
 
           echo "Debug: Starting app metadata collection"
           
@@ -111,28 +105,14 @@ jobs:
                     
                     echo "Debug: Added to build queue: ${{ github.event.repository.owner.login }}/${app_name}"
                     
-                    # Add to simple arrays first for debugging
-                    context_dirs+=("$context_dir")
-                    dockerfile_paths+=("$dockerfile_path")
-                    image_names+=("${{ github.event.repository.owner.login }}/$app_name")
-                    versions+=("$version")
-                    
-                    # Create JSON object for matrix
-                    matrix_item=$(jq -n \
-                      --arg context_dir "$context_dir" \
-                      --arg dockerfile_path "$dockerfile_path" \
-                      --arg image_name "${{ github.event.repository.owner.login }}/$app_name" \
-                      --arg version "$version" \
-                      '{context_dir: $context_dir, dockerfile_path: $dockerfile_path, image_name: $image_name, version: $version}')
-                    matrix_items+=("$matrix_item")
+                    # Create an item with all the needed properties
+                    item="${context_dir}|${dockerfile_path}|${{ github.event.repository.owner.login }}/${app_name}|${version}"
+                    image_items+=("${item}")
                   else
                     echo "Debug: No Dockerfile found in ${context_dir}, skipping"
                   fi
                 fi
               done
-              
-              echo "Debug: Final context dirs array: ${context_dirs[*]}"
-              echo "Debug: Final image names array: ${image_names[*]}"
               
             else
               # Force build with input parameters
@@ -142,19 +122,9 @@ jobs:
               image_name="${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}"
               version=""
               
-              # Add to simple arrays first for debugging
-              context_dirs+=("$context_dir")
-              dockerfile_paths+=("$dockerfile_path")
-              image_names+=("$image_name")
-              versions+=("$version")
-              
-              matrix_item=$(jq -n \
-                --arg context_dir "$context_dir" \
-                --arg dockerfile_path "$dockerfile_path" \
-                --arg image_name "$image_name" \
-                --arg version "$version" \
-                '{context_dir: $context_dir, dockerfile_path: $dockerfile_path, image_name: $image_name, version: $version}')
-              matrix_items+=("$matrix_item")
+              # Create an item with all the needed properties
+              item="${context_dir}|${dockerfile_path}|${image_name}|${version}"
+              image_items+=("${item}")
             fi
           else
             # No changes and no force build
@@ -162,38 +132,46 @@ jobs:
             exit 0
           fi
 
-          # Check if matrix_items is empty and provide a default in that case
-          if [ ${#matrix_items[@]} -eq 0 ]; then
-            echo "Debug: No matrix items found, providing default empty array"
-            matrix_json="[]"
+          # Check if we have items to process
+          if [ ${#image_items[@]} -eq 0 ]; then
+            echo "No images to build"
+            echo "has_items=false" >> $GITHUB_OUTPUT
           else
-            echo "Debug: Creating matrix JSON with ${#matrix_items[@]} items"
-            # Convert matrix items array to JSON
-            matrix_json=$(printf '%s\n' "${matrix_items[@]}" | jq -s .)
+            echo "has_items=true" >> $GITHUB_OUTPUT
+            # Create a properly escaped JSON array
+            json_array=$(printf '%s\n' "${image_items[@]}" | jq -R . | jq -sc .)
+            echo "Debug: JSON array: ${json_array}"
+            echo "image_items=${json_array}" >> $GITHUB_OUTPUT
           fi
           
-          echo "Debug: matrix_json: ${matrix_json}"
-
-          # Write to GITHUB_OUTPUT with proper delimiter
-          {
-            echo "matrix<<EOF"
-            echo "$matrix_json"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-          
-          echo "Debug: Output written to GITHUB_OUTPUT"
+          echo "Debug: Output written to GITHUB_OUTPUT with ${#image_items[@]} items"
 
   release:
     needs: [setup]
-    if: ${{ needs.setup.outputs.matrix != '' && needs.setup.outputs.matrix != '[]' }}
+    if: ${{ needs.setup.outputs.has_items == 'true' }}
     runs-on: ${{ inputs.runs_on }}
     permissions:
       contents: write
       packages: write
     strategy:
       matrix:
-        include: ${{ fromJson(needs.setup.outputs.matrix) }}
+        image_item: ${{ fromJson(needs.setup.outputs.image_items) }}
     steps:
+      - name: Parse image item
+        id: parse-item
+        run: |
+          IFS='|' read -r context_dir dockerfile_path image_name version <<< "${{ matrix.image_item }}"
+          echo "context_dir=${context_dir}" >> $GITHUB_OUTPUT
+          echo "dockerfile_path=${dockerfile_path}" >> $GITHUB_OUTPUT
+          echo "image_name=${image_name}" >> $GITHUB_OUTPUT
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          
+          echo "Parsed values:"
+          echo "Context dir: ${context_dir}"
+          echo "Dockerfile path: ${dockerfile_path}"
+          echo "Image name: ${image_name}"
+          echo "Version: ${version}"
+
       - name: Install packages
         uses: ConorMacBride/install-package@v1
         with:
@@ -210,7 +188,7 @@ jobs:
         id: docker-meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ matrix.image_name }}
+          images: ghcr.io/${{ steps.parse-item.outputs.image_name }}
           tags: |
             type=sha
             type=schedule
@@ -220,7 +198,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ matrix.version }},priority=1001,enable=${{ matrix.version != '' }}
+            type=raw,value=${{ steps.parse-item.outputs.version }},priority=1001,enable=${{ steps.parse-item.outputs.version != '' }}
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -253,17 +231,17 @@ jobs:
           DOCKER_BUILDKIT_ATTESTATIONS: ${{ inputs.warp_build_profile == '' }}
         with:
           push: ${{ github.event_name != 'pull_request' }}
-          context: "{{defaultContext}}:${{ matrix.context_dir }}"
-          file: ${{ matrix.dockerfile_path }}
+          context: "{{defaultContext}}:${{ steps.parse-item.outputs.context_dir }}"
+          file: ${{ steps.parse-item.outputs.dockerfile_path }}
           build-args: ${{ inputs.build_args }}
-          cache-from: "type=registry,ref=ghcr.io/${{ matrix.image_name }}:cache"
-          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ matrix.image_name }}:cache"
+          cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:cache"
+          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:cache"
           tags: ${{ steps.docker-meta.outputs.tags }}
           platforms: ${{ inputs.platforms }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ matrix.image_name }}-${{ steps.docker-meta.outputs.version }}
+          tag_name: ${{ steps.parse-item.outputs.image_name }}-${{ steps.docker-meta.outputs.version }}
           body: |
             Source commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}

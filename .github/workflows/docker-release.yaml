@@ -67,6 +67,7 @@ jobs:
           declare -a dockerfile_paths
           declare -a image_names
           declare -a versions
+          declare -a matrix_items
 
           if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" || "${{ inputs.force_build }}" == "true" ]]; then
             if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" ]]; then
@@ -95,19 +96,25 @@ jobs:
                       continue
                     fi
                     
-                    context_dirs+=("$context_dir")
-                    dockerfile_paths+=("$dockerfile_path")
-                    image_names+=("${{ github.event.repository.owner.login }}/$app_name")
-                    versions+=("$version")
+                    matrix_item=$(jq -n \
+                      --arg context_dir "$context_dir" \
+                      --arg dockerfile_path "$dockerfile_path" \
+                      --arg image_name "${{ github.event.repository.owner.login }}/$app_name" \
+                      --arg version "$version" \
+                      '{context_dir: $context_dir, dockerfile_path: $dockerfile_path, image_name: $image_name, version: $version}')
+                    matrix_items+=("$matrix_item")
                   fi
                 fi
-              done <<< "${{ steps.changed-files.outputs.all_changed_files }}"
+              done
             else
               # Force build with input parameters
-              context_dirs+=("${{ inputs.context_dir }}")
-              dockerfile_paths+=("${{ inputs.dockerfile_path }}")
-              image_names+=("${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}")
-              versions+=("")
+              matrix_item=$(jq -n \
+                --arg context_dir "${{ inputs.context_dir }}" \
+                --arg dockerfile_path "${{ inputs.dockerfile_path }}" \
+                --arg image_name "${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}" \
+                --arg version "" \
+                '{context_dir: $context_dir, dockerfile_path: $dockerfile_path, image_name: $image_name, version: $version}')
+              matrix_items+=("$matrix_item")
             fi
           else
             # No changes and no force build
@@ -115,25 +122,13 @@ jobs:
             exit 0
           fi
 
-          # Convert arrays to JSON and properly escape for GITHUB_OUTPUT
-          context_dirs_json=$(printf '%s\n' "${context_dirs[@]}" | jq -R . | jq -sc | jq -r tostring)
-          dockerfile_paths_json=$(printf '%s\n' "${dockerfile_paths[@]}" | jq -R . | jq -sc | jq -r tostring)
-          image_names_json=$(printf '%s\n' "${image_names[@]}" | jq -R . | jq -sc | jq -r tostring)
-          versions_json=$(printf '%s\n' "${versions[@]}" | jq -R . | jq -sc | jq -r tostring)
+          # Convert matrix items array to JSON
+          matrix_json=$(printf '%s\n' "${matrix_items[@]}" | jq -s .)
 
           # Write to GITHUB_OUTPUT with proper delimiter
           {
-            echo "context_dirs<<EOF"
-            echo "$context_dirs_json"
-            echo "EOF"
-            echo "dockerfile_paths<<EOF"
-            echo "$dockerfile_paths_json"
-            echo "EOF"
-            echo "image_names<<EOF"
-            echo "$image_names_json"
-            echo "EOF"
-            echo "versions<<EOF"
-            echo "$versions_json"
+            echo "matrix<<EOF"
+            echo "$matrix_json"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -145,10 +140,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        context_dir: ${{ fromJson(needs.setup.outputs.context_dirs) }}
-        dockerfile_path: ${{ fromJson(needs.setup.outputs.dockerfile_paths) }}
-        image_name: ${{ fromJson(needs.setup.outputs.image_names) }}
-        version: ${{ fromJson(needs.setup.outputs.versions) }}
+        include: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - name: Install packages
         uses: ConorMacBride/install-package@v1

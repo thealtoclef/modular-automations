@@ -170,7 +170,6 @@ jobs:
       - name: Setup GitHub environment
         id: setup-github-env
         run: |
-          echo "BUILDX_DRIVER=$BUILDX_DRIVER" >> $GITHUB_ENV
           echo "::add-mask::$WARPBUILD_API_KEY"
           echo "WARPBUILD_API_KEY=$WARPBUILD_API_KEY" >> $GITHUB_ENV
 
@@ -207,8 +206,6 @@ jobs:
       - name: Set up Docker Buildx
         if: ${{ inputs.warp_build_profile == '' }}
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: ${{ env.BUILDX_DRIVER || '' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6

@@ -97,6 +97,7 @@ jobs:
                       --arg in "${{ github.event.repository.owner.login }}/${app_name}" \
                       --arg v "$version" \
                       '{context_dir: $cd, dockerfile_path: $dp, image_name: $in, version: $v}')
+                    echo "Adding item: $item"
                     image_items+=("$item")
                   fi
                 fi
@@ -104,6 +105,7 @@ jobs:
               
             else
               # Force build with input parameters
+              echo "Force build with input parameters"
               context_dir="${{ inputs.context_dir }}"
               dockerfile_path="${{ inputs.dockerfile_path }}"
               image_name="${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}"
@@ -116,6 +118,7 @@ jobs:
                 --arg in "$image_name" \
                 --arg v "$version" \
                 '{context_dir: $cd, dockerfile_path: $dp, image_name: $in, version: $v}')
+              echo "Adding item: $item"
               image_items+=("$item")
             fi
           else

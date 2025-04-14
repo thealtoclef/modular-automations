@@ -60,17 +60,11 @@ jobs:
       - name: Get App metadata
         id: app-meta
         run: |
-          echo "Starting Get App metadata step"
           # Initialize array for outputs
           declare -a image_items
           
-          echo "Checking conditions: changed_files_count=${{ steps.changed-files.outputs.all_changed_files_count }}, force_build=${{ inputs.force_build }}"
-          
           if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" || "${{ inputs.force_build }}" == "true" ]]; then
-            echo "Entering build condition block"
-            
             if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" ]]; then
-              echo "Processing changed files"
               # Process changed version files
               for changed_file in ${{ steps.changed-files.outputs.all_changed_files }}; do
                 if [[ -n "${changed_file}" ]]; then
@@ -105,24 +99,17 @@ jobs:
                       '{context_dir: $cd, dockerfile_path: $dp, image_name: $in, version: $v}')
                     echo "Adding item: $item"
                     image_items+=("$item")
-                  else
-                    echo "Dockerfile not found in $context_dir"
                   fi
                 fi
               done
               
             else
-              echo "Entering force build section"
               # Force build with input parameters
+              echo "Force build with input parameters"
               context_dir="${{ inputs.context_dir }}"
               dockerfile_path="${{ inputs.dockerfile_path }}"
               image_name="${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}"
               version=""
-              
-              echo "Force build parameters:"
-              echo "context_dir: $context_dir"
-              echo "dockerfile_path: $dockerfile_path"
-              echo "image_name: $image_name"
               
               # Create an item with all the needed properties
               item=$(jq -n \
@@ -137,31 +124,21 @@ jobs:
           else
             # No changes and no force build
             echo "No changes detected and force_build is false"
-            # Don't exit here, let it continue to set outputs
+            exit 0
           fi
-
-          echo "Final image_items array contents:"
-          for item in "${image_items[@]}"; do
-              echo "$item"
-          done
-          echo "Number of items: ${#image_items[@]}"
 
           # Check if we have items to process
           if [ ${#image_items[@]} -eq 0 ]; then
-            echo "Setting has_items to false"
             echo "has_items=false" >> $GITHUB_OUTPUT
           else
-            echo "Setting has_items to true"
             echo "has_items=true" >> $GITHUB_OUTPUT
             # Create a properly formatted JSON array and escape properly for GitHub Actions
             json_array=$(printf '%s\n' "${image_items[@]}" | jq -c -s .)
-            echo "Generated json_array: $json_array"
             # GitHub Actions requires a specific format for multiline outputs
             echo "image_items<<EOF" >> $GITHUB_OUTPUT
             echo "$json_array" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
           fi
-          echo "Get App metadata step completed"
 
   release:
     needs: [setup]

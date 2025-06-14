@@ -23,8 +23,8 @@ on:
         required: false
         type: string
       dockerfile_path:
-        description: The path to the Dockerfile to build, relative to the context directory
-        default: "Dockerfile"
+        description: The path to the Dockerfile to build
+        default: "./Dockerfile"
         required: false
         type: string
       build_args:
@@ -72,7 +72,7 @@ jobs:
         run: |
           # Initialize array for outputs
           declare -a image_items
-          
+
           if [[ "${{ steps.changed-files.outputs.all_changed_files_count }}" -gt "0" || "${{ inputs.force_build }}" == "true" ]]; then
             if [[ "${{ inputs.force_build }}" == "true" ]]; then
               # Force build logic - always build with input parameters
@@ -102,7 +102,7 @@ jobs:
               for changed_file in ${{ steps.changed-files.outputs.all_changed_files }}; do
                 if [[ -n "${changed_file}" ]]; then
                   context_dir=$(dirname $changed_file)
-                  dockerfile_path="Dockerfile"  # Assuming Dockerfile is in the same directory
+                  dockerfile_path="$context_dir/Dockerfile"  # Assuming Dockerfile is in context_dir
                   
                   # If version.txt is in root, use repo name as app_name
                   if [[ "$context_dir" == "." ]]; then
@@ -112,7 +112,7 @@ jobs:
                   fi
                   
                   # Only process if Dockerfile exists
-                  if [[ -f "$context_dir/Dockerfile" ]]; then
+                  if [[ -f "$dockerfile_path" ]]; then
                     # Read version from the changed version.txt
                     version=$(cat "$changed_file")
                     tag_name="${app_name}-${version}"
@@ -166,6 +166,9 @@ jobs:
       matrix:
         image_item: ${{ fromJson(needs.setup.outputs.image_items) }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Parse image item
         id: parse-item
         run: |
@@ -174,7 +177,7 @@ jobs:
           dockerfile_path=$(echo '${{ toJSON(matrix.image_item) }}' | jq -r '.dockerfile_path')
           image_name=$(echo '${{ toJSON(matrix.image_item) }}' | jq -r '.image_name')
           version=$(echo '${{ toJSON(matrix.image_item) }}' | jq -r '.version')
-          
+
           echo "context_dir=${context_dir}" >> $GITHUB_OUTPUT
           echo "dockerfile_path=${dockerfile_path}" >> $GITHUB_OUTPUT
           echo "image_name=${image_name}" >> $GITHUB_OUTPUT
@@ -239,7 +242,7 @@ jobs:
           DOCKER_BUILDKIT_ATTESTATIONS: ${{ inputs.warp_build_profile == '' }}
         with:
           push: ${{ github.event_name != 'pull_request' }}
-          context: "{{defaultContext}}:${{ steps.parse-item.outputs.context_dir }}"
+          context: ${{ steps.parse-item.outputs.context_dir }}
           file: ${{ steps.parse-item.outputs.dockerfile_path }}
           build-args: ${{ inputs.build_args }}
           cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:cache"

@@ -37,6 +37,16 @@ on:
         default: false
         required: false
         type: boolean
+      prefix:
+        description: The prefix to add to the Docker image tags
+        default: ""
+        required: false
+        type: string
+      suffix:
+        description: The suffix to add to the Docker image tags
+        default: ""
+        required: false
+        type: string
 
 jobs:
   setup:
@@ -186,6 +196,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ steps.parse-item.outputs.image_name }}
+          flavor: |
+            prefix=${{ inputs.prefix }},onlatest=true
+            suffix=${{ inputs.suffix }},onlatest=true
           tags: |
             type=sha
             type=schedule

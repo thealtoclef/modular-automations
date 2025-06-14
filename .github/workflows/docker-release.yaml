@@ -251,6 +251,7 @@ jobs:
           platforms: ${{ inputs.platforms }}
 
       - name: Create GitHub Release
+        if: github.event_name == 'push' || github.event_name == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.parse-item.outputs.image_name }}-${{ steps.docker-meta.outputs.version }}

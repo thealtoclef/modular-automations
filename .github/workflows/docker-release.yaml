@@ -245,8 +245,8 @@ jobs:
           context: ${{ steps.parse-item.outputs.context_dir }}
           file: ${{ steps.parse-item.outputs.dockerfile_path }}
           build-args: ${{ inputs.build_args }}
-          cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:cache"
-          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:cache"
+          cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix }}cache${{ inputs.suffix }}"
+          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix }}cache${{ inputs.suffix }}"
           tags: ${{ steps.docker-meta.outputs.tags }}
           platforms: ${{ inputs.platforms }}
 

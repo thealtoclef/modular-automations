@@ -42,11 +42,6 @@ on:
         default: ""
         required: false
         type: string
-      suffix:
-        description: The suffix to add to the Docker image tags
-        default: ""
-        required: false
-        type: string
 
 jobs:
   setup:
@@ -199,19 +194,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ steps.parse-item.outputs.image_name }}
-          flavor: |
-            prefix=${{ inputs.prefix }},onlatest=true
-            suffix=${{ inputs.suffix }},onlatest=true
           tags: |
-            type=sha
-            type=schedule
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.parse-item.outputs.version }},priority=1001,enable=${{ steps.parse-item.outputs.version != '' }}
+            type=sha,prefix=${{ inputs.prefix }}-{{branch}}-
+            type=ref,event=pr,prefix=${{ inputs.prefix }}-pr-
+            type=raw,prefix=${{ inputs.prefix }}-,value=latest,enable={{is_default_branch}}
+            type=raw,prefix=${{ inputs.prefix }}-,value=${{ steps.parse-item.outputs.version }},priority=1001,enable=${{ steps.parse-item.outputs.version != '' }}
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -245,8 +232,8 @@ jobs:
           context: ${{ steps.parse-item.outputs.context_dir }}
           file: ${{ steps.parse-item.outputs.dockerfile_path }}
           build-args: ${{ inputs.build_args }}
-          cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix }}cache${{ inputs.suffix }}"
-          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix }}cache${{ inputs.suffix }}"
+          cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix }}-cache"
+          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix }}-cache"
           tags: ${{ steps.docker-meta.outputs.tags }}
           platforms: ${{ inputs.platforms }}
 

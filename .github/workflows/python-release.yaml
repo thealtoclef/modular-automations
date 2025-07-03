@@ -56,18 +56,7 @@ jobs:
 
       - name: Build package
         working-directory: ${{ inputs.relative_dir }}
-        run: uv build
-
-      - name: Check if release tag matches package tag
-        if: ${{ inputs.publish == true }}
-        working-directory: ${{ inputs.relative_dir }}
-        run: |
-          RELEASE_TAG="${{ steps.calver.outputs.version }}"
-          PACKAGE_VERSION=$(uv tree -d 0 | awk '{print $2}' | sed 's/^v//')
-          if [  "${RELEASE_TAG}" != "${PACKAGE_VERSION}" ]; then
-            echo "Error: Release tag (${RELEASE_TAG}) does not match package version (${PACKAGE_VERSION})"
-            exit 1
-          fi
+        run: uv version ${{ steps.calver.outputs.version }} && uv build
 
       - name: Publish package to registry
         if: ${{ inputs.publish == true }}

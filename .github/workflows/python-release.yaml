@@ -36,6 +36,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup git
+        run: |
+          git config --global --add safe.directory '*'
+
       - name: Delete trigger tag
         if: ${{ github.ref_type == 'tag' }}
         run: git push --delete origin ${{ github.event.ref }}

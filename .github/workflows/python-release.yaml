@@ -12,6 +12,11 @@ on:
         type: string
         required: false
         default: "."
+      setup_rust:
+        description: Whether to setup rust
+        type: boolean
+        required: false
+        default: false
       prerelease:
         description: Whether the release is a pre-release
         type: boolean
@@ -26,6 +31,7 @@ on:
 jobs:
   release:
     runs-on: ${{ inputs.runs_on }}
+    container: quay.io/pypa/manylinux_2_28_x86_64
     environment: pypi
     permissions:
       contents: write
@@ -39,8 +45,15 @@ jobs:
         if: ${{ github.ref_type == 'tag' }}
         run: git push --delete origin ${{ github.event.ref }}
 
-      - name: Install uv
+      - name: Setup uv
         uses: astral-sh/setup-uv@v6
+
+      - name: Setup rust
+        if: ${{ inputs.rustup }}
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
 
       - name: Calendar Versioning (PEP 440 Compatible)
         id: calver

@@ -44,6 +44,15 @@ jobs:
         if: ${{ github.ref_type == 'tag' }}
         run: git push --delete origin ${{ github.event.ref }}
 
+      - name: Setup system packages
+        run: |
+          apt-get update -y && apt-get install -y --no-install-recommends \
+            libclang-dev \
+            llvm-dev \
+            libclang-15-dev \
+            clang \
+            libkrb5-dev
+
       - name: Calendar Versioning (PEP 440 Compatible)
         id: calver
         uses: alepee/calendar-version-action@v1
@@ -51,10 +60,9 @@ jobs:
           dateFormat: "YYYY0M.DD"
           format: "%NOW%.${{ inputs.prerelease && '0rc' || '' }}%MICRO%"
 
-      - name: Git tag
-        run: git tag ${{ steps.calver.outputs.version }}
-
       - name: Build package
+        env:
+          LIBCLANG_PATH: /usr/lib/llvm-15/lib
         run: |
           uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }}
           uv build --directory ${{ inputs.directory }}

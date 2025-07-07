@@ -53,7 +53,7 @@ jobs:
         run: git tag ${{ steps.calver.outputs.version }}
 
       - name: Build package
-        run: uv version ${{ steps.calver.outputs.version }} && uv build --directory ${{ inputs.directory }}
+        run: uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }} && uv build --directory ${{ inputs.directory }}
 
       - name: Publish package to registry
         if: ${{ inputs.publish == true }}

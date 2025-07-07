@@ -58,13 +58,6 @@ jobs:
             pkgconfig \
             libatomic
 
-      - name: Setup rust
-        if: ${{ inputs.rustup }}
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt
-
       - name: Delete trigger tag
         if: ${{ github.ref_type == 'tag' }}
         run: git push --delete origin ${{ github.event.ref }}

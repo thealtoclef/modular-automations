@@ -7,8 +7,8 @@ on:
         default: "self-hosted"
         required: false
         type: string
-      relative_dir:
-        description: Relative directory to package
+      directory:
+        description: Directory of the package
         type: string
         required: false
         default: "."
@@ -53,13 +53,11 @@ jobs:
         run: git tag ${{ steps.calver.outputs.version }}
 
       - name: Build package
-        working-directory: ${{ inputs.relative_dir }}
-        run: uv version ${{ steps.calver.outputs.version }} && uv build
+        run: uv version ${{ steps.calver.outputs.version }} && uv build --directory ${{ inputs.directory }}
 
       - name: Publish package to registry
         if: ${{ inputs.publish == true }}
-        working-directory: ${{ inputs.relative_dir }}
-        run: uv publish
+        run: uv publish --directory ${{ inputs.directory }}
 
       - name: Make GitHub release
         uses: softprops/action-gh-release@v2.1.0

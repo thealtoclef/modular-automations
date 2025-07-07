@@ -41,9 +41,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Delete trigger tag
-        if: ${{ github.ref_type == 'tag' }}
-        run: git push --delete origin ${{ github.event.ref }}
+      - name: Setup git
+        run: |
+          git config --global --add safe.directory '*'
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
@@ -55,6 +55,10 @@ jobs:
           toolchain: stable
           components: rustfmt
 
+      - name: Delete trigger tag
+        if: ${{ github.ref_type == 'tag' }}
+        run: git push --delete origin ${{ github.event.ref }}
+
       - name: Calendar Versioning (PEP 440 Compatible)
         id: calver
         uses: alepee/calendar-version-action@v1
@@ -63,9 +67,7 @@ jobs:
           format: "%NOW%.${{ inputs.prerelease && '0rc' || '' }}%MICRO%"
 
       - name: Git tag
-        run: |
-          git config --global --add safe.directory '*'
-          git tag ${{ steps.calver.outputs.version }}
+        run: git tag ${{ steps.calver.outputs.version }}
 
       - name: Build package
         run: |

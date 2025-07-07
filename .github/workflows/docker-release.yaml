@@ -178,11 +178,6 @@ jobs:
           echo "image_name=${image_name}" >> $GITHUB_OUTPUT
           echo "version=${version}" >> $GITHUB_OUTPUT
 
-      - name: Install packages
-        uses: ConorMacBride/install-package@v1
-        with:
-          apt: uuid-runtime
-
       - name: Setup GitHub environment
         id: setup-github-env
         run: |
@@ -206,6 +201,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
+      - name: Setup system packages for WarpBuild
+        if: ${{ inputs.warp_build_profile != '' }}
+        run: |
+          apt-get update -y && apt-get install -y --no-install-recommends \
+            uuid-runtime
 
       - name: Configure WarpBuild Docker Builders
         if: ${{ inputs.warp_build_profile != '' }}

@@ -51,7 +51,7 @@ jobs:
 
       - name: Import secrets from vault
         id: vault
-        uses: hashicorp/vault-action@v2
+        uses: hashicorp/vault-action@v3
         with:
           url: https://vault.thealtoclef.com
           role: github-actions

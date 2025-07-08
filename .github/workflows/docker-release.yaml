@@ -57,10 +57,10 @@ jobs:
       
       - name: Import secrets from vault
         id: vault
-        uses: hashicorp/vault-action@v2
+        uses: hashicorp/vault-action@v3
         with:
           url: https://vault.thealtoclef.com
-          role: reader
+          role: github-actions
           method: jwt
           secrets: |
             secret/data/arc/runner WARPBUILD_API_KEY | WARPBUILD_API_KEY ;

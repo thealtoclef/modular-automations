@@ -56,12 +56,18 @@ jobs:
 
       - name: Setup system packages
         run: |
-          apt-get update -y && apt-get install -y --no-install-recommends \
-            libclang-dev \
-            llvm-dev \
-            libclang-15-dev \
-            clang \
-            libkrb5-dev
+          yum update -y && yum install -y \
+            epel-release \
+            mysql-devel \
+            postgresql-devel \
+            freetds-devel \
+            krb5-libs \
+            clang-devel \
+            perl-core \
+            openssl \
+            openssl-devel \
+            pkgconfig \
+            libatomic
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
@@ -74,8 +80,6 @@ jobs:
           format: "%NOW%.${{ inputs.prerelease && '0rc' || '' }}%MICRO%"
 
       - name: Build package
-        env:
-          LIBCLANG_PATH: /usr/lib/llvm-15/lib
         run: |
           uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }} --no-sync
           uv build --directory ${{ inputs.directory }}

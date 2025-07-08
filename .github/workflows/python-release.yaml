@@ -80,6 +80,8 @@ jobs:
           format: "%NOW%.${{ inputs.prerelease && '0rc' || '' }}%MICRO%"
 
       - name: Build package
+        env:
+          MATURIN_PEP517_ARGS: "--manylinux 2_28 --features integrated-auth-gssapi"
         run: |
           uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }} --no-sync
           uv build --directory ${{ inputs.directory }}

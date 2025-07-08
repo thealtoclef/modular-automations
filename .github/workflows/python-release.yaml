@@ -27,7 +27,6 @@ jobs:
   release:
     runs-on: ${{ inputs.runs_on }}
     container: ghcr.io/astral-sh/uv:debian
-    environment: pypi
     permissions:
       contents: write
       id-token: write
@@ -44,6 +43,18 @@ jobs:
       - name: Delete trigger tag
         if: ${{ github.ref_type == 'tag' }}
         run: git push --delete origin ${{ github.event.ref }}
+
+      - name: Import Secrets
+        id: import-secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: https://vault.thealtoclef.com
+          role: reader
+          method: jwt
+          secrets: |
+            secret/data/ci/aws accessKey | AWS_ACCESS_KEY_ID ;
+            secret/data/ci/aws secretKey | AWS_SECRET_ACCESS_KEY ;
+            secret/data/ci npm_token
 
       - name: Setup system packages
         run: |

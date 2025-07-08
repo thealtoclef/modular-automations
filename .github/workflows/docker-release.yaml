@@ -54,6 +54,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      
+      - name: Import secrets from vault
+        id: vault
+        uses: hashicorp/vault-action@v2
+        with:
+          url: https://vault.thealtoclef.com
+          role: reader
+          method: jwt
+          secrets: |
+            secret/data/arc/runner WARPBUILD_API_KEY | WARPBUILD_API_KEY ;
 
       - name: Get all changed version files
         id: changed-files
@@ -211,6 +221,8 @@ jobs:
       - name: Configure WarpBuild Docker Builders
         if: ${{ inputs.warp_build_profile != '' }}
         uses: Warpbuilds/docker-configure@v1
+        env:
+          WARPBUILD_API_KEY: ${{ steps.vault.outputs.WARPBUILD_API_KEY }}
         with:
           api-key: ${{ env.WARPBUILD_API_KEY }}
           profile-name: ${{ inputs.warp_build_profile }}

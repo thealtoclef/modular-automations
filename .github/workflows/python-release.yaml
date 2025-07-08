@@ -44,17 +44,15 @@ jobs:
         if: ${{ github.ref_type == 'tag' }}
         run: git push --delete origin ${{ github.event.ref }}
 
-      - name: Import Secrets
-        id: import-secrets
+      - name: Import secrets from vault
+        id: vault
         uses: hashicorp/vault-action@v2
         with:
           url: https://vault.thealtoclef.com
           role: reader
           method: jwt
           secrets: |
-            secret/data/ci/aws accessKey | AWS_ACCESS_KEY_ID ;
-            secret/data/ci/aws secretKey | AWS_SECRET_ACCESS_KEY ;
-            secret/data/ci npm_token
+            secret/data/arc/runner UV_PUBLISH_TOKEN | UV_PUBLISH_TOKEN ;
 
       - name: Setup system packages
         run: |
@@ -81,6 +79,8 @@ jobs:
 
       - name: Publish package to registry
         if: ${{ inputs.publish == true }}
+        env:
+          UV_PUBLISH_TOKEN: ${{ steps.vault.outputs.UV_PUBLISH_TOKEN }}
         run: uv publish --directory ${{ inputs.directory }}
 
       - name: Make GitHub release

@@ -12,6 +12,11 @@ on:
         type: string
         required: false
         default: "."
+      auto_calver:
+        description: Whether to automatically generate a calendar version
+        type: boolean
+        required: false
+        default: true
       prerelease:
         description: Whether the release is a pre-release
         type: boolean
@@ -73,17 +78,22 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Calendar Versioning (PEP 440 Compatible)
+        if: ${{ inputs.auto_calver }}
         id: calver
         uses: alepee/calendar-version-action@v1
         with:
           dateFormat: "YYYY0M.DD"
           format: "%NOW%.${{ inputs.prerelease && '0rc' || '' }}%MICRO%"
 
+      - name: Set package version to calendar version
+        if: ${{ inputs.auto_calver }}
+        run: |
+          uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }} --no-sync
+
       - name: Build package
         env:
           MATURIN_PEP517_ARGS: "--manylinux 2_28 --features integrated-auth-gssapi"
         run: |
-          uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }} --no-sync
           uv build --directory ${{ inputs.directory }}
 
       - name: Publish package to registry

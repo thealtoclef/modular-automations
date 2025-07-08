@@ -74,7 +74,7 @@ jobs:
         env:
           LIBCLANG_PATH: /usr/lib/llvm-15/lib
         run: |
-          uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }}
+          uv version ${{ steps.calver.outputs.version }} --directory ${{ inputs.directory }} --no-sync
           uv build --directory ${{ inputs.directory }}
 
       - name: Publish package to registry

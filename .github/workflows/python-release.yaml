@@ -49,7 +49,7 @@ jobs:
         uses: hashicorp/vault-action@v2
         with:
           url: https://vault.thealtoclef.com
-          role: reader
+          role: github-actions
           method: jwt
           secrets: |
             secret/data/arc/runner UV_PUBLISH_TOKEN | UV_PUBLISH_TOKEN ;

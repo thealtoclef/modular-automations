@@ -188,12 +188,6 @@ jobs:
           echo "image_name=${image_name}" >> $GITHUB_OUTPUT
           echo "version=${version}" >> $GITHUB_OUTPUT
 
-      - name: Setup GitHub environment
-        id: setup-github-env
-        run: |
-          echo "::add-mask::$WARPBUILD_API_KEY"
-          echo "WARPBUILD_API_KEY=$WARPBUILD_API_KEY" >> $GITHUB_ENV
-
       - name: Get Docker metadata
         id: docker-meta
         uses: docker/metadata-action@v5

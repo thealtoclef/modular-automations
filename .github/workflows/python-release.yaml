@@ -36,6 +36,16 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - name: Import secrets from vault
+        id: vault
+        uses: hashicorp/vault-action@v3
+        with:
+          url: https://vault.thealtoclef.com
+          role: github-actions
+          method: jwt
+          secrets: |
+            secret/data/arc/runner UV_PUBLISH_TOKEN | UV_PUBLISH_TOKEN ;
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -48,16 +58,6 @@ jobs:
       - name: Delete trigger tag
         if: ${{ github.ref_type == 'tag' }}
         run: git push --delete origin ${{ github.event.ref }}
-
-      - name: Import secrets from vault
-        id: vault
-        uses: hashicorp/vault-action@v3
-        with:
-          url: https://vault.thealtoclef.com
-          role: github-actions
-          method: jwt
-          secrets: |
-            secret/data/arc/runner UV_PUBLISH_TOKEN | UV_PUBLISH_TOKEN ;
 
       - name: Setup system packages
         run: |

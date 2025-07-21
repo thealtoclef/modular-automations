@@ -212,12 +212,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Setup system packages for WarpBuild
-        if: ${{ inputs.warp_build_profile != '' }}
-        run: |
-          apt-get update -y && apt-get install -y --no-install-recommends \
-            uuid-runtime
-
       - name: Configure WarpBuild Docker Builders
         if: ${{ inputs.warp_build_profile != '' }}
         uses: Warpbuilds/docker-configure@v1

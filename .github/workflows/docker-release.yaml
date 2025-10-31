@@ -37,8 +37,8 @@ on:
         default: false
         required: false
         type: boolean
-      prefix:
-        description: The prefix to add to the Docker image tags
+      image_suffix:
+        description: Suffix to add to the image name
         default: ""
         required: false
         type: string
@@ -83,6 +83,11 @@ jobs:
                 version=$(cat "$version_file")
               fi
               
+              # Apply image suffix if provided
+              if [[ -n "${{ inputs.image_suffix }}" ]]; then
+                image_name="${image_name}-${{ inputs.image_suffix }}"
+              fi
+
               # Create an item with all the needed properties
               item=$(jq -n \
                 --arg cd "$context_dir" \
@@ -118,11 +123,17 @@ jobs:
                       continue
                     fi
                     
+                    # Apply image suffix if provided
+                    image_name="${{ github.event.repository.owner.login }}/${app_name}"
+                    if [[ -n "${{ inputs.image_suffix }}" ]]; then
+                      image_name="${image_name}-${{ inputs.image_suffix }}"
+                    fi
+
                     # Create an item with all the needed properties
                     item=$(jq -n \
                       --arg cd "$context_dir" \
                       --arg dp "$dockerfile_path" \
-                      --arg in "${{ github.event.repository.owner.login }}/${app_name}" \
+                      --arg in "$image_name" \
                       --arg v "$version" \
                       '{context_dir: $cd, dockerfile_path: $dp, image_name: $in, version: $v}')
                     echo "Adding item: $item"
@@ -195,10 +206,10 @@ jobs:
         with:
           images: ghcr.io/${{ steps.parse-item.outputs.image_name }}
           tags: |
-            type=sha,prefix=${{ inputs.prefix && format('{0}-', inputs.prefix) || '' }}{{branch}}-
-            type=ref,event=pr,prefix=${{ inputs.prefix && format('{0}-', inputs.prefix) || '' }}pr-
-            type=raw,prefix=${{ inputs.prefix && format('{0}-', inputs.prefix) || '' }},value=latest,enable={{is_default_branch}}
-            type=raw,prefix=${{ inputs.prefix && format('{0}-', inputs.prefix) || '' }},value=${{ steps.parse-item.outputs.version }},priority=1001,enable=${{ steps.parse-item.outputs.version != '' }}
+            type=sha,prefix={{branch}}-
+            type=ref,event=pr,prefix=pr-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.parse-item.outputs.version }},priority=1001,enable=${{ steps.parse-item.outputs.version != '' }}
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -234,8 +245,8 @@ jobs:
           context: ${{ steps.parse-item.outputs.context_dir }}
           file: ${{ steps.parse-item.outputs.dockerfile_path }}
           build-args: ${{ inputs.build_args }}
-          cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix && format('{0}-', inputs.prefix) || '' }}cache"
-          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:${{ inputs.prefix && format('{0}-', inputs.prefix) || '' }}cache"
+          cache-from: "type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:cache"
+          cache-to: "mode=max,image-manifest=true,oci-mediatypes=true,type=registry,ref=ghcr.io/${{ steps.parse-item.outputs.image_name }}:cache"
           tags: ${{ steps.docker-meta.outputs.tags }}
           platforms: ${{ inputs.platforms }}
 

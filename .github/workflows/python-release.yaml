@@ -27,6 +27,11 @@ on:
         type: boolean
         required: false
         default: false
+      maturin_pep517_args:
+        description: Arguments for MATURIN_PEP517_ARGS env var in the build step
+        type: string
+        required: false
+        default: ""
 
 jobs:
   release:
@@ -93,7 +98,7 @@ jobs:
       - name: Build package
         id: build
         env:
-          MATURIN_PEP517_ARGS: "--manylinux 2_28 --features integrated-auth-gssapi"
+          MATURIN_PEP517_ARGS: ${{ inputs.maturin_pep517_args }}
         run: |
           uv build --directory ${{ inputs.directory }}
           echo "version=$(uv version --directory ${{ inputs.directory }} --no-sync | awk '{print $2}')" >> $GITHUB_OUTPUT

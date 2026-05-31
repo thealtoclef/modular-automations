@@ -7,11 +7,6 @@ on:
         default: "self-hosted"
         required: false
         type: string
-      warp_build_profile:
-        description: WarpBuild profile to use
-        default: ""
-        required: false
-        type: string
       platforms:
         description: The platforms to build the Docker image for
         default: "linux/amd64"
@@ -180,8 +175,8 @@ jobs:
           url: https://vault.thealtoclef.com
           role: github-actions
           method: jwt
+          # secrets format: secret/data/path SECRET_KEY | OUTPUT_NAME ;
           secrets: |
-            secret/data/arc/runner WARPBUILD_API_KEY | WARPBUILD_API_KEY ;
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -218,17 +213,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Configure WarpBuild Docker Builders
-        if: ${{ inputs.warp_build_profile != '' }}
-        uses: Warpbuilds/docker-configure@v1
-        env:
-          WARPBUILD_API_KEY: ${{ steps.vault.outputs.WARPBUILD_API_KEY }}
-        with:
-          api-key: ${{ env.WARPBUILD_API_KEY }}
-          profile-name: ${{ inputs.warp_build_profile }}
-
       - name: Set up Docker Buildx
-        if: ${{ inputs.warp_build_profile == '' }}
         uses: docker/setup-buildx-action@v3
         with:
           driver: remote
@@ -236,13 +221,6 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v6
-        env:
-          DOCKER_BUILD_RECORD_UPLOAD: ${{ inputs.warp_build_profile == '' }}
-          DOCKER_BUILD_SUMMARY: ${{ inputs.warp_build_profile == '' }}
-          DOCKER_BUILD_CHECKS_ANNOTATIONS: ${{ inputs.warp_build_profile == '' }}
-          DOCKER_BUILDKIT_PROVENANCE: ${{ inputs.warp_build_profile == '' }}
-          DOCKER_BUILDKIT_SBOM: ${{ inputs.warp_build_profile == '' }}
-          DOCKER_BUILDKIT_ATTESTATIONS: ${{ inputs.warp_build_profile == '' }}
         with:
           push: ${{ github.event_name != 'pull_request' }}
           context: ${{ steps.parse-item.outputs.context_dir }}

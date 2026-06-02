@@ -78,10 +78,12 @@ jobs:
             openssl-devel \
             pkgconfig \
             libatomic
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
+
+      - name: Setup rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Calendar Versioning (PEP 440 Compatible)
         if: ${{ inputs.auto_calver }}

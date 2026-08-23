@@ -43,7 +43,7 @@ jobs:
     steps:
       - name: Import secrets from vault
         id: vault
-        uses: hashicorp/vault-action@v3
+        uses: hashicorp/vault-action@v4
         with:
           url: https://vault.thealtoclef.com
           role: github-actions
@@ -52,7 +52,7 @@ jobs:
             secret/data/arc/runner UV_PUBLISH_TOKEN | UV_PUBLISH_TOKEN ;
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -80,7 +80,7 @@ jobs:
             libatomic
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10
 
       - name: Setup rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -88,7 +88,7 @@ jobs:
       - name: Calendar Versioning (PEP 440 Compatible)
         if: ${{ inputs.auto_calver }}
         id: calver
-        uses: alepee/calendar-version-action@v1
+        uses: alepee/calendar-version-action@v2
         with:
           dateFormat: "YYYY0M.DD"
           format: "%NOW%.${{ inputs.prerelease && '0rc' || '' }}%MICRO%"
@@ -113,7 +113,7 @@ jobs:
         run: uv publish --directory ${{ inputs.directory }}
 
       - name: Make GitHub release
-        uses: softprops/action-gh-release@v2.1.0
+        uses: softprops/action-gh-release@v3
         if: ${{ inputs.publish == true }}
         with:
           body: "**Source commit**: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"

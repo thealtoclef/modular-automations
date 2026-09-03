@@ -178,6 +178,7 @@ jobs:
           secrets: |
             secret/data/arc/runner S3_ACCESS_KEY_ID | S3_ACCESS_KEY_ID ;
             secret/data/arc/runner S3_SECRET_ACCESS_KEY | S3_SECRET_ACCESS_KEY ;
+            secret/data/arc/runner HF_TOKEN | HF_TOKEN ;
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -222,6 +223,8 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v7
+        env:
+          HF_TOKEN: ${{ steps.vault.outputs.HF_TOKEN }}
         with:
           push: ${{ github.event_name != 'pull_request' }}
           context: ${{ steps.parse-item.outputs.context_dir }}
